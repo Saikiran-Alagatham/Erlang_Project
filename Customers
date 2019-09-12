@@ -1,0 +1,43 @@
+%%%-------------------------------------------------------------------
+%%% @author saikiranask
+%%% @copyright (C) 2019, <Concordia>
+%%% @doc
+%%%
+%%% @end
+%%% Created : 21. Jun 2019 13:35
+%%%-------------------------------------------------------------------
+-module(customers).
+-export([start_customer/2]).
+
+start_customer({Name, Money} = _Customer, BankPids) ->
+  io:format("cust init name: ~p, money required: ~p ~n", [Name, Money]),
+  customer_request(Name, Money, BankPids).
+
+customer_request(Name, Money, BankInfos) ->
+  Loan = case Money of
+           Money when Money =< 50 ->
+             Money;
+           Money when Money > 50 ->
+             rand:uniform(50)
+         end,
+  Rem = Money - Loan,
+  PickBank = rand:uniform(length(BankInfos)),
+  {PickedBankPid, PickedBankName} = lists:nth(PickBank, BankInfos),
+  RandomTimeToWait = rand:uniform(90),
+  timer:sleep(RandomTimeToWait + 10),
+  PickedBankPid ! {loan_req, self(), Loan},
+  UpdatedBankInfos = receive
+                       {loan_reject} ->
+                         io:format("Loan rejected for cust name: ~p of value ~p from ~p bank ~n",[Name, Loan, PickedBankName]),
+                         lists:delete(PickBank, BankInfos);
+                       {loan_approved} ->
+                         io:format("Loan approved for cust name: ~p of value ~p from ~p bank ~n",[Name, Loan, PickedBankName]),
+                         BankInfos
+                     end,
+  case Rem of
+    0 ->
+      io:format("Customer name: ~p target reached~n", [Name]),
+      ok;
+    Rem ->
+      customer_request(Name, Rem, UpdatedBankInfos)
+  end.
